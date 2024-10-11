@@ -70,4 +70,11 @@ The `MockRouter`'s implementation of `exactInput` and `exactOutput` is deliberat
 - Validates the final output amount against the minimum specified in the swap order.
 - Converts WETH back to native currency if the final token is WETH/WBNB; otherwise, it transfers the output tokens directly to the user.
 
+
+### Deploy the contracts on the local hardhat network
+
+npx hardhat ignition deploy ./ignition/modules/MockContract.js 
+the contract address response will be added in the CrossDEXSwap 
+npx hardhat ignition deploy ./ignition/modules/CrossDEXSwap.js
+
  
