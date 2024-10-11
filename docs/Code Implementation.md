@@ -70,6 +70,4 @@ The `MockRouter`'s implementation of `exactInput` and `exactOutput` is deliberat
 - Validates the final output amount against the minimum specified in the swap order.
 - Converts WETH back to native currency if the final token is WETH/WBNB; otherwise, it transfers the output tokens directly to the user.
 
---- 
-
-This version presents the content in a clear, structured manner without any repetitive lines.
+ 
