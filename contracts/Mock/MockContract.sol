@@ -45,16 +45,23 @@ contract MockWETH is ERC20 {
         _mint(msg.sender, msg.value);
     }
 
-    function withdraw(uint256 amount) external {
+   function withdraw(uint256 amount) external {
         require(balanceOf(msg.sender) >= amount, "MockWETH: insufficient balance");
         _burn(msg.sender, amount);
-        payable(msg.sender).transfer(amount);
+        // Instead of trying to transfer ETH, we'll just emit an event
+        emit Withdrawal(msg.sender, amount);
     }
 
-        // Add this function for testing
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
     }
+
+    // Add this function to check contract's ETH balance
+    function getETHBalance() public view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    event Withdrawal(address indexed user, uint256 amount);
 }
 
 contract MockRouter {

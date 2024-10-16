@@ -14,7 +14,7 @@ describe("CrossDEXSwap", function () {
     console.log("addr1", addr1.address);
     console.log("addr2", addr2.address);
 
-    // Deploy mock tokens
+    // Token Deploy Tokens
     MockERC20 = await ethers.getContractFactory("MockERC20");
     console.log("MockERC20 factory created");
 
@@ -24,11 +24,11 @@ describe("CrossDEXSwap", function () {
     expect(tokenA.target).to.be.properAddress;
 
     tokenB = await MockERC20.deploy("Token B", "TKB");
-    expect(tokenB.target).to.properAddress; // Ensure the address is valid
+    expect(tokenB.target).to.properAddress; // Address validation
     console.log("Token B deployed at:", tokenB.target);
 
     tokenC = await MockERC20.deploy("Token C", "TKC");
-    expect(tokenC.target).to.properAddress; // Ensure the address is valid
+    expect(tokenC.target).to.properAddress; // Address validation
     console.log("Token C deployed at:", tokenC.target);
 
     // Deploy mock WETH
@@ -72,25 +72,23 @@ describe("CrossDEXSwap", function () {
     it("Should execute a multi-step swap across different DEXes", async function () {
       // Mint tokens to addr1
 
-       await weth.mint(crossDEXSwap.target, ethers.parseUnits("1000",18));
-       console.log("Minted 1000 WETH to CrossDEXSwap contract");
-
-      await tokenA.mint(addr1.address, ethers.parseUnits("1000",18));
+      await tokenA.mint(addr1.address, ethers.parseUnits("1000", 18));
       console.log("Minted 1000 Token A to addr1");
-
-      const crossDEXSwapWETHBalance = await weth.balanceOf(crossDEXSwap.target);
-      console.log("CrossDEXSwap WETH balance:", ethers.formatUnits(crossDEXSwapWETHBalance, 18));     
-
+  
       // Approve CrossDEXSwap to spend addr1's tokens
-      await tokenA.connect(addr1).approve(crossDEXSwap.target, ethers.parseUnits("1000",18));
+      await tokenA.connect(addr1).approve(crossDEXSwap.target, ethers.parseUnits("1000", 18));
       console.log("Approved CrossDEXSwap to spend addr1's Token A");
-
+  
       // Set up mock returns for routers
-      await uniswapRouter.setMockReturn(ethers.parseUnits("200",18)); // 1000 TKA -> 200 TKB
-      await pancakeRouter.setMockReturn(ethers.parseUnits("150",18)); // 200 TKB -> 150 TKC
-      await sushiRouter.setMockReturn(ethers.parseUnits("100",18)); // 150 TKC -> 100 WETH
+      await uniswapRouter.setMockReturn(ethers.parseUnits("200", 18)); // 1000 TKA -> 200 TKB
+      await pancakeRouter.setMockReturn(ethers.parseUnits("150", 18)); // 200 TKB -> 150 TKC
+      await sushiRouter.setMockReturn(ethers.parseUnits("100", 18)); // 150 TKC -> 100 WETH
       console.log("Set up mock returns for routers");
-
+  
+      // Mint some WETH to the CrossDEXSwap contract
+      await weth.mint(crossDEXSwap.target, ethers.parseUnits("1000", 18));
+      console.log("Minted 1000 WETH to CrossDEXSwap contract");
+      
       // Create swap order
       const swapOrder = {
         steps: [
@@ -162,23 +160,26 @@ describe("CrossDEXSwap", function () {
       try {
         const tx = await crossDEXSwap.connect(addr1).executeSwap(swapOrder);
         const receipt = await tx.wait();
-        console.log("Swap executed successfully. Transaction hash:", receipt.transactionHash);
+        console.log("Swap executed successfully. Transaction hash:", receipt.hash);
 
         const swapEvent = receipt.events?.find(e => e.event === "SwapExecuted");
         if (swapEvent) {
-          console.log("SwapExecuted event emitted with args:", swapEvent.args);
+            console.log("SwapExecuted event emitted with args:", swapEvent.args);
         } else {
-          console.log("SwapExecuted event not found in transaction receipt");
+            console.log("SwapExecuted event not found in transaction receipt");
         }
-      } catch (error) {
+    } catch (error) {
         console.error("Error executing swap:", error);
         throw error;
-      }
+    }
 
-      // Check final balance
-      const finalBalance = await weth.balanceOf(addr1.address);
-      console.log("Final WETH balance of addr1:", ethers.utils.formatEther(finalBalance));
-      expect(finalBalance).to.equal(ethers.parseUnits("100",18));
+
+
+    // Check final balance
+    const finalBalance = await weth.balanceOf(addr1.address);
+    console.log("Final WETH balance of addr1:", ethers.formatEther(finalBalance));
+    expect(finalBalance).to.equal(ethers.parseUnits("100", 18));
+
     });
   });
 });

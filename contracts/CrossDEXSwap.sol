@@ -81,7 +81,7 @@ contract CrossDEXSwap is ReentrancyGuard, Ownable {
     constructor() Ownable(msg.sender) {
         dexRouters[DEX.UNISWAP_V3] = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E; // Sepolia testnet
         dexRouters[DEX.PANCAKESWAP_V3] = 0x9a489505a00cE272eAa5e07Dba6491314CaE3796; // BSC
-        dexRouters[DEX.SUSHISWAP_V3] = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E; // Assuming this is correct
+        dexRouters[DEX.SUSHISWAP_V3] = 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E; // sushiswap
 
         // Set wrapped native token addresses (replace with actual addresses)
         wrappedNativeToken[11155111] = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9; // WETH on Ethereum mainnet
@@ -94,56 +94,55 @@ contract CrossDEXSwap is ReentrancyGuard, Ownable {
         IWETH(wrappedNativeToken[block.chainid]).deposit{value: msg.value}();
     }
 
-    function executeSwap(SwapOrder calldata order) external payable nonReentrant returns (uint256 amountOut) {
-        require(order.steps.length > 0, "Invalid number of swap steps");
-        require(order.deadline >= block.timestamp, "Deadline expired");
+function executeSwap(SwapOrder calldata order) external payable nonReentrant returns (uint256 amountOut) {
+    require(order.steps.length > 0, "Invalid number of swap steps");
+    require(order.deadline >= block.timestamp, "Deadline expired");
 
-        address wrappedNative = wrappedNativeToken[block.chainid];
-        require(wrappedNative != address(0), "Wrapped native token not set for this chain");
+    address wrappedNative = wrappedNativeToken[block.chainid];
+    require(wrappedNative != address(0), "Wrapped native token not set for this chain");
 
-        uint256 currentAmountIn;
-        address currentTokenIn = order.steps[0].tokenIn;
+    uint256 currentAmountIn;
+    address currentTokenIn = order.steps[0].tokenIn;
 
-        if (currentTokenIn == wrappedNative && msg.value > 0) {
-            // Convert received ETH to WETH
-            IWETH(wrappedNative).deposit{value: msg.value}();
-            currentAmountIn = msg.value;
-        } else {
-            currentAmountIn = order.steps[0].amount;
-            IERC20(currentTokenIn).safeTransferFrom(msg.sender, address(this), currentAmountIn);
-        }
-
-        for (uint i = 0; i < order.steps.length; i++) {
-            SwapStep memory step = order.steps[i];
-            require(step.tokenIn == currentTokenIn, "Invalid token path");
-
-            currentAmountIn = _executeSwapStep(step, currentAmountIn, order.deadline);
-            currentTokenIn = step.tokenOut;
-        }
-
-        amountOut = currentAmountIn;
-        require(amountOut >= order.minAmountOut, "Slippage too high");
-
-        if (currentTokenIn == wrappedNative) {
-            // Check the balance before withdrawal
-            uint256 wethBalance = IWETH(wrappedNative).balanceOf(address(this));
-            require(wethBalance >= amountOut, "Insufficient WETH balance");
-
-            // Convert WETH back to ETH and send to user
-            IWETH(wrappedNative).withdraw(amountOut);
-            (bool success, ) = payable(msg.sender).call{value: amountOut}("");
-            require(success, "ETH transfer failed");
-        } else {
-            IERC20(currentTokenIn).safeTransfer(msg.sender, amountOut);
-        }
-
-        emit SwapExecuted(msg.sender, order.steps[0].amount, amountOut);
+    if (currentTokenIn == wrappedNative && msg.value > 0) {
+        // Convert received ETH to WETH
+        IWETH(wrappedNative).deposit{value: msg.value}();
+        currentAmountIn = msg.value;
+    } else {
+        currentAmountIn = order.steps[0].amount;
+        IERC20(currentTokenIn).safeTransferFrom(msg.sender, address(this), currentAmountIn);
     }
+
+    for (uint i = 0; i < order.steps.length; i++) {
+        SwapStep memory step = order.steps[i];
+        require(step.tokenIn == currentTokenIn, "Invalid token path");
+
+        currentAmountIn = _executeSwapStep(step, currentAmountIn, order.deadline);
+        currentTokenIn = step.tokenOut;
+    }
+
+    amountOut = currentAmountIn;
+    require(amountOut >= order.minAmountOut, "Slippage too high");
+
+    if (currentTokenIn == wrappedNative) {
+        // Check the balance before transfer
+        uint256 wethBalance = IERC20(wrappedNative).balanceOf(address(this));
+        require(wethBalance >= amountOut, "Insufficient WETH balance");
+
+        // Transfer WETH directly to the user
+        IERC20(wrappedNative).safeTransfer(msg.sender, amountOut);
+    } else {
+        IERC20(currentTokenIn).safeTransfer(msg.sender, amountOut);
+    }
+
+    emit SwapExecuted(msg.sender, order.steps[0].amount, amountOut);
+}
 
     function _executeSwapStep(SwapStep memory step, uint256 amountIn, uint256 deadline) internal returns (uint256) {
         address router = dexRouters[step.dex];
         require(router != address(0), "Invalid DEX router");
 
+        IERC20(step.tokenIn).approve(router, amountIn);
         IERC20(step.tokenIn).approve(router, amountIn);
 
         bytes memory path = abi.encodePacked(step.tokenIn, step.fee, step.tokenOut);
